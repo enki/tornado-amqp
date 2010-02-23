@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-from tornado import ioloop, web, httpserver, options
+from tornado import ioloop, web, httpserver
 from amqplib import client_0_8 as amqp_client
 from amqplib.client_0_8 import Message
 import tamqp
 
 """
 1. Run this example
-2. Open http://localhost:8080/ in browser, it will stall until 3 messages are received
-3. Publish 3 messages using curl
+2. Open http://localhost:8080/monitor in browser to monitor message pubblication
+3. Publish messages using curl
 $ curl http://localhost:8080/pub?q=message1
 $ curl http://localhost:8080/pub?q=message2
 $ curl http://localhost:8080/pub?q=message3

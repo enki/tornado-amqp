@@ -3,7 +3,16 @@ from amqplib.client_0_8.serialization import GenericContent
 from tamqp import slave
 from tamqp import message
 
-GenericContent.__getstate__ = lambda self: False #to fix Message pickability
+def ignore_setstate(method):
+    def new_getattr(self, name):
+        if name == '__setstate__':
+            raise AttributeError('__setstate__ not found')
+        else:
+            return method(self, name)
+    return new_getattr
+
+#to fix Message pickability
+GenericContent.__getattr__ = ignore_setstate(GenericContent.__getattr__)
 
 class AmqpSlave(object):
 
