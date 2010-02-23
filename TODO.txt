@@ -1,4 +1,3 @@
 add logging
 review of exceptional cases
 add documentation
-add example

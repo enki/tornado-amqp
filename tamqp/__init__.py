@@ -1,18 +1,22 @@
-from amqplib.client_0_8.serialization import GenericContent
+from amqplib.client_0_8 import Message as AmqplibMessage
 
 from tamqp import slave
 from tamqp import message
 
-def ignore_setstate(method):
-    def new_getattr(self, name):
-        if name == '__setstate__':
-            raise AttributeError('__setstate__ not found')
-        else:
-            return method(self, name)
-    return new_getattr
+#proxy class for amqplib.client_0_8.Message.
+#until http://code.google.com/p/py-amqplib/issues/detail?id=15 is fixed
+class _Message(object):
 
-#to fix Message pickability
-GenericContent.__getattr__ = ignore_setstate(GenericContent.__getattr__)
+    def __init__(self, body, children=None, **properties):
+        self.body = body
+        self.properties = properties
+
+    def to_amqplib_message(self):
+        return AmqplibMessage(self.body, **self.properties)
+
+    @classmethod
+    def from_amqplib_message(cls, msg):
+        return cls(msg.body, **msg.properties)
 
 class AmqpSlave(object):
 
@@ -24,16 +28,18 @@ class AmqpSlave(object):
 
 class AmqpConsumer(AmqpSlave):
 
-    def __init__(self, channel_factory, callback, io_loop = None):
+    def __init__(self, channel_factory, queue_name, callback, io_loop = None):
+        self.queue_name = queue_name
+        self.callback = callback
         super(AmqpConsumer, self).__init__(channel_factory, io_loop)
         self.message_stream.read(self._msg_callback)
-        self.callback = callback
 
     def _msg_callback(self, data):
+        msg = data.to_amqplib_message()
         try:
-            self.callback(data)
+            self.callback(msg)
         except:
-            pass #TODO log
+            raise #TODO log
         self.message_stream.read(self._msg_callback)
 
     def _slave_main(self, socket):
@@ -41,22 +47,21 @@ class AmqpConsumer(AmqpSlave):
         ch = self.channel_factory()
 
         def forward_msg(msg):
-            message_socket.write(msg)
+            message_socket.write(_Message.from_amqplib_message(msg))
 
-        ch.basic_consume('consumer', callback=forward_msg)
+        ch.basic_consume(self.queue_name, callback=forward_msg, no_ack=True)
         while ch.callbacks:
             ch.wait()
 
 class AmqpProducer(AmqpSlave):
 
     def publish(self, msg, exchange, callback=None):
-        self.message_stream.write((msg, exchange), callback)
+        pickable_msg = _Message.from_amqplib_message(msg)
+        self.message_stream.write((pickable_msg, exchange), callback)
 
     def _slave_main(self, socket):
         message_socket = message.MessageSocket(socket)
         ch = self.channel_factory()
         while True:
-            print "producer - preparing for socket read"
             msg, exchange = message_socket.read()
-            print "produrer - socket read: %s %s" % (msg, exchange)
-            ch.basic_publish(msg, exchange)
+            ch.basic_publish(msg.to_amqplib_message(), exchange)

@@ -19,16 +19,13 @@ class SlaveProcess(object):
         s_master, s_slave = socket.socketpair()
         self.pid = os.fork()
         if self.pid:
-            print "pid",self.pid
             s_slave.close()
-            print "master socket fd", s_master.fileno()
             self.iostream = iostream.IOStream(s_master,
                                               self._io_loop,
                                               self._max_buffer_size,
                                               self._read_chunk_size)
         else:
             s_master.close()
-            print "slave socket fd", s_slave.fileno()
             self.callback(s_slave)
             sys.exit()
 

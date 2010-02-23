@@ -8,22 +8,23 @@ import tamqp
 """
 1. Run this example
 2. Open http://localhost:8080/monitor in browser to monitor message pubblication
-3. Publish messages using curl
-$ curl http://localhost:8080/pub?q=message1
-$ curl http://localhost:8080/pub?q=message2
-$ curl http://localhost:8080/pub?q=message3
-
+3. Publish a messages using curl
+$ curl http://localhost:8080/pub?q=hello
 """
 
 XNAME="tornado_test_exchage"
 QNAME="tornado_test_queue"
-HOST="eng:5672"
+HOST="localhost:5672"
 
-class MainHandler(web.RequestHandler):
+class MonitorHandler(web.RequestHandler):
+
+    def stop_monitoring(self, msg):
+        self.write(msg.body)
+        self.finish()
 
     @web.asynchronous
     def get(self):
-        listeners.append(self.write)
+        listeners.append(self.stop_monitoring)
 
 class PubHandler(web.RequestHandler):
     def get(self):
@@ -35,7 +36,7 @@ def amqp_setup():
     conn = amqp_client.Connection(host=HOST, userid="guest", password="guest",
                                   virtual_host="/", insist=False)
     chan = conn.channel()
-    chan.exchange_declare(exchange=XNAME, type="fanout", durable=True, 
+    chan.exchange_declare(exchange=XNAME, type="fanout", durable=True,
                           auto_delete=False)
     chan.queue_declare(queue=QNAME, durable=False, exclusive=False,
                        auto_delete=False)
@@ -52,15 +53,15 @@ listeners = []
 def notify_listeners(msg):
     for l in listeners:
         l(msg)
-    
+
 def main():
     global listeners, consumer, producer
     amqp_setup()
-    #consumer = tamqp.AmqpConsumer(channel_factory, notify_listeners)
+    consumer = tamqp.AmqpConsumer(channel_factory, QNAME, notify_listeners)
     producer = tamqp.AmqpProducer(channel_factory)
 
     application = web.Application([
-        (r"/monitor", MainHandler),
+        (r"/monitor", MonitorHandler),
         (r"/pub",     PubHandler),
     ])
 
@@ -72,5 +73,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt, SysExit:
-        #consumer.slave.stop()
+        consumer.slave.stop()
         producer.slave.stop()
