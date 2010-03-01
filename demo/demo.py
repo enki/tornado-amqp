@@ -21,6 +21,7 @@ HOST="localhost:5672"
 class MonitorHandler(web.RequestHandler):
 
     def stop_monitoring(self, msg):
+        listeners.remove(self.stop_monitoring)
         self.write(msg.body)
         self.finish()
 
@@ -53,7 +54,7 @@ def channel_factory():
 
 listeners = []
 def notify_listeners(msg):
-    for l in listeners:
+    for l in list(listeners):
         l(msg)
 
 def main():
