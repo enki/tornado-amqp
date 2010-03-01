@@ -22,8 +22,8 @@ class MessageSocket(object):
 
     def read(self):
         encoded_msg_size = self._socket_read(format_size)
-        pickle_len, = struct.unpack(format, encoded_msg_size)
-        encoded_msg      = self._socket_read(pickle_len)
+        (pickle_len,) = struct.unpack(format, encoded_msg_size)
+        encoded_msg = self._socket_read(pickle_len)
         return cPickle.loads(encoded_msg)
 
     def _socket_read(self, bytes):
@@ -49,9 +49,6 @@ class MessageStream(object):
 
         def read_pickle(data):
             msg = cPickle.loads(data)
-            try:
-                callback(msg)
-            except:
-                raise #TODO FIXME
+            callback(msg)
 
         self.iostream.read_bytes(format_size, read_pickle_len)
