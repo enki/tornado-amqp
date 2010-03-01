@@ -1,14 +1,16 @@
 import sys
 import socket, os
-import signal
+import signal, logging
 
 from tornado import ioloop, iostream
 
+logger = logging.getLogger('tamqp.slave')
+
 class SlaveProcess(object):
 
-    def __init__(self, callback, io_loop = None, max_buffer_size=104857600,
+    def __init__(self, slave_main, io_loop=None, max_buffer_size=104857600,
                  read_chunk_size=4096):
-        self.callback = callback
+        self.slave_main = slave_main
         self.iostream = None
         self.pid = None
         self._io_loop = io_loop or ioloop.IOLoop.instance()
@@ -19,14 +21,21 @@ class SlaveProcess(object):
         s_master, s_slave = socket.socketpair()
         self.pid = os.fork()
         if self.pid:
+            logger.info('slave child (pid=%d) started', self.pid)
             s_slave.close()
             self.iostream = iostream.IOStream(s_master,
                                               self._io_loop,
                                               self._max_buffer_size,
                                               self._read_chunk_size)
         else:
-            s_master.close()
-            self.callback(s_slave)
+            try:
+                s_master.close()
+            except os.error:
+                pass
+            try:
+                self.slave_main(s_slave)
+            except:
+                logger.error('error in slave_main', exec_info=True)
             sys.exit()
 
     def stop(self):
