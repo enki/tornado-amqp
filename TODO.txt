@@ -1,3 +1,2 @@
-add logging
-review of exceptional cases
 add documentation
+ack handling for amqp consumer

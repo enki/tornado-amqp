@@ -29,7 +29,10 @@ class MessageSocket(object):
     def _socket_read(self, bytes):
         data = ''
         while not len(data) == bytes:
-            data += self.socket.recv(bytes - len(data))
+            new_data = self.socket.recv(bytes - len(data))
+            if len(new_data) == 0:
+                raise IOError('socket is closed')
+            data += new_data
         return data
 
 class MessageStream(object):
@@ -52,3 +55,6 @@ class MessageStream(object):
             callback(msg)
 
         self.iostream.read_bytes(format_size, read_pickle_len)
+
+    def close(self):
+        self.iostream.close()

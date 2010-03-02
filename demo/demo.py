@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from tornado import ioloop, web, httpserver
+import sys, signal
+from tornado import ioloop, web, httpserver, options
 from amqplib import client_0_8 as amqp_client
 from amqplib.client_0_8 import Message
 import tamqp
@@ -58,7 +59,9 @@ def notify_listeners(msg):
         l(msg)
 
 def main():
+    signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))
     global listeners, consumer, producer
+    options.parse_command_line()
     amqp_setup()
     consumer = tamqp.AmqpConsumer(channel_factory, QNAME, notify_listeners)
     producer = tamqp.AmqpProducer(channel_factory)
@@ -75,6 +78,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except KeyboardInterrupt, SysExit:
-        consumer.slave.stop()
-        producer.slave.stop()
+    except (SystemExit, KeyboardInterrupt):
+        consumer.stop()
+        producer.stop()

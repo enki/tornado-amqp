@@ -34,9 +34,17 @@ class SlaveProcess(object):
                 pass
             try:
                 self.slave_main(s_slave)
+            except KeyboardInterrupt:
+                logger.info('SIGINT caught')
+            except SystemExit:
+                pass
             except:
-                logger.error('error in slave_main', exec_info=True)
-            sys.exit()
+                logger.error('error in slave_main', exc_info=True)
+            logger.info('slave exiting ...')
+            os._exit(0)
 
     def stop(self):
-        os.kill(self.pid, signal.SIGTERM)
+        logger.info('stopping slave child (pid=%d)', self.pid)
+        if self.pid:
+            os.kill(self.pid, signal.SIGINT)
+        self.pid = None
