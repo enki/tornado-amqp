@@ -7,7 +7,7 @@ from amqplib.client_0_8 import Message
 import tamqp
 
 """
-Thnaks to Wil Tan (http://dready.org/) for the demo application
+Thanks to Wil Tan (http://dready.org/) for the demo application
 
 1. Run this example
 2. Open http://localhost:8080/monitor in browser to monitor message pubblication
