@@ -32,6 +32,7 @@ class SlaveProcess(object):
                 s_master.close()
             except os.error:
                 pass
+            exit_code = 0
             try:
                 self.slave_main(s_slave)
             except KeyboardInterrupt:
@@ -40,8 +41,9 @@ class SlaveProcess(object):
                 pass
             except:
                 logger.error('error in slave_main', exc_info=True)
+                exit_code = 1
             logger.info('slave exiting ...')
-            os._exit(0)
+            os._exit(exit_code)
 
     def stop(self):
         logger.info('stopping slave child (pid=%d)', self.pid)
