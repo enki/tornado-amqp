@@ -23,7 +23,9 @@ class _Message(object):
 
 class AmqpSlave(object):
 
-    def __init__(self, channel_factory, io_loop=None):
+    def __init__(self, channel_factory, on_start=None, io_loop=None):
+        assert on_start is None or callable(on_start)
+        self.on_start = on_start
         self.channel_factory = channel_factory
         self.slave = slave.SlaveProcess(self._slave_main, io_loop)
         self.slave.start()
@@ -34,6 +36,8 @@ class AmqpSlave(object):
         self.slave.stop()
 
     def _slave_main(self, socket):
+        if self.on_start:
+            self.on_start()
         message_socket = message.MessageSocket(socket)
         ch = self.channel_factory()
         try:
@@ -46,10 +50,13 @@ class AmqpSlave(object):
 
 class AmqpConsumer(AmqpSlave):
 
-    def __init__(self, channel_factory, queue_name, callback, io_loop=None):
+    def __init__(self, channel_factory, queue_name, callback, on_start=None,
+                 io_loop=None):
         self.queue_name = queue_name
         self.callback = callback
-        super(AmqpConsumer, self).__init__(channel_factory, io_loop)
+        super(AmqpConsumer, self).__init__(channel_factory,
+                                           on_start=on_start,
+                                           io_loop=io_loop)
         self.message_stream.read(self._msg_callback)
 
     def _msg_callback(self, data):
