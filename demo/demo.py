@@ -23,25 +23,13 @@ BROKER_USER = "myuser"
 BROKER_PASSWORD = "mypassword"
 BROKER_VHOST = "myvhost"
 
-class MonitorHandler(web.RequestHandler):
+SETUPPED = False
+PRODUCER_SINGLETON = None
 
-    def stop_monitoring(self, msg):
-        listeners.remove(self.stop_monitoring)
-        self.write(msg.body)
-        try:
-            self.finish()
-        except:
-            pass # well, either way we are done.
-
-    @web.asynchronous
-    def get(self):
-        listeners.append(self.stop_monitoring)
-
-class PubHandler(web.RequestHandler):
-    def get(self):
-        self.write("publishing...")
-        msg = Message(self.get_argument("q"))
-        producer.publish(msg, exchange=XNAME)
+listeners = []
+def notify_listeners(msg):
+    for l in list(listeners):
+        l(msg)
 
 def amqp_setup():
     conn = amqp_client.Connection(host=HOST, userid=BROKER_USER, password=BROKER_PASSWORD,
@@ -60,19 +48,54 @@ def channel_factory():
                                   virtual_host="/", insist=False)
     return conn.channel()
 
-listeners = []
-def notify_listeners(msg):
-    for l in list(listeners):
-        l(msg)
+def prepare():
+    global SETUPPED
+    if not SETUPPED:
+        amqp_setup()
+        SETUPPED = True
+
+def subscribe(queue, callback):
+    prepare()
+    consumer = tamqp.AmqpConsumer(channel_factory, queue, callback)
+    return consumer
+
+def make_producer():
+    prepare()
+    global PRODUCER_SINGLETON
+    if not PRODUCER_SINGLETON:
+        producer = tamqp.AmqpProducer(channel_factory)
+    else:
+        producer = PRODUCER_SINGLETON
+    return producer
+    
+class MonitorHandler(web.RequestHandler):
+
+    @web.asynchronous
+    def get(self):
+        self.request.connection.stream.set_close_callback(self.on_connection_close)
+        listeners.append(self.message_received)
+
+    def message_received(self, msg):
+        self.write(msg.body)
+        try:
+            self.finish()
+        except:
+            pass # well, either way we are done. no time for tears.
+
+    def on_connection_close(self):
+        listeners.remove(self.message_received)
+
+class PubHandler(web.RequestHandler):
+    def get(self):
+        self.write("publishing...")
+        msg = Message(self.get_argument("q"))
+        make_producer().publish(msg, exchange=XNAME)
 
 def main():
     signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(0))
-    global listeners, consumer, producer
+    # global listeners, consumer, producer
     options.parse_command_line()
-    amqp_setup()
-    consumer = tamqp.AmqpConsumer(channel_factory, QNAME, notify_listeners)
-    producer = tamqp.AmqpProducer(channel_factory)
-
+    
     application = web.Application([
         (r"/monitor", MonitorHandler),
         (r"/pub",     PubHandler),
@@ -80,11 +103,14 @@ def main():
 
     http_server = httpserver.HTTPServer(application)
     http_server.listen(8080)
+    
+    subscribe(QNAME, notify_listeners)
+    
     ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (SystemExit, KeyboardInterrupt):
-        consumer.stop()
-        producer.stop()
+    # try:
+    main()
+    # except (SystemExit, KeyboardInterrupt):
+    #     consumer.stop()
+    #     producer.stop()
