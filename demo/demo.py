@@ -19,12 +19,19 @@ XNAME="tornado_test_exchage"
 QNAME="tornado_test_queue"
 HOST="localhost:5672"
 
+BROKER_USER = "myuser"
+BROKER_PASSWORD = "mypassword"
+BROKER_VHOST = "myvhost"
+
 class MonitorHandler(web.RequestHandler):
 
     def stop_monitoring(self, msg):
         listeners.remove(self.stop_monitoring)
         self.write(msg.body)
-        self.finish()
+        try:
+            self.finish()
+        except:
+            pass # well, either way we are done.
 
     @web.asynchronous
     def get(self):
@@ -37,8 +44,8 @@ class PubHandler(web.RequestHandler):
         producer.publish(msg, exchange=XNAME)
 
 def amqp_setup():
-    conn = amqp_client.Connection(host=HOST, userid="guest", password="guest",
-                                  virtual_host="/", insist=False)
+    conn = amqp_client.Connection(host=HOST, userid=BROKER_USER, password=BROKER_PASSWORD,
+                                  virtual_host=BROKER_VHOST, insist=False)
     chan = conn.channel()
     chan.exchange_declare(exchange=XNAME, type="fanout", durable=True,
                           auto_delete=False)
