@@ -43,9 +43,11 @@ class AmqpSlave(object):
         try:
             self._slave_impl(ch, message_socket)
         finally:
-            conn = ch.connection
-            ch.close()
-            conn.close()
+            if ch:
+                conn = ch.connection
+                ch.close()
+                if conn:
+                    conn.close()
             logger.info("closed amqp connection")
 
 class AmqpConsumer(AmqpSlave):
