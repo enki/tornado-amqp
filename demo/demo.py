@@ -8,6 +8,7 @@ import tamqp
 
 """
 Thanks to Wil Tan (http://dready.org/) for the demo application
+Refactored by Paul Bohm (http://paulbohm.com/)
 
 1. Run this example
 2. Open http://localhost:8080/monitor in browser to monitor message pubblication
